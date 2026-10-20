@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>منشئ كشوفات نحن - نسخة الهاتف</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts: Cairo -->
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- html2pdf.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brandNavy: '#1F4E78',
+            brandTeal: '#13B5C8',
+          },
+          fontFamily: {
+            cairo: ['Cairo', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Cairo', sans-serif;
+      background-color: #f1f5f9; /* لون هادئ للموبايل */
+    }
+
+    /* تصميم مرن للشاشات الصغيرة، وورقة A4 للشاشات الكبيرة */
+    .a4-paper {
+      width: 100%;
+      min-height: 100vh;
+      margin: 0 auto;
+      background-color: white;
+      padding: 1rem;
+      position: relative;
+    }
+
+    @media (min-width: 768px) {
+      .a4-paper {
+        max-width: 210mm;
+        min-height: 297mm;
+        margin: 2rem auto;
+        padding: 15mm;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+      }
+    }
+
+    /* تحسين شكل التعديل المباشر */
+    [contenteditable="true"] {
+      transition: all 0.2s;
+      outline: none;
+      border-bottom: 1px dashed transparent;
+      min-width: 20px; /* ضمان مساحة للنقر */
+    }
+    
+    [contenteditable="true"]:hover, [contenteditable="true"]:focus {
+      background-color: #f0fdfa;
+      border-bottom: 1px dashed #13B5C8;
+    }
+
+    /* نصوص بديلة للخلايا الفارغة */
+    [contenteditable="true"]:empty:before {
+      content: attr(data-placeholder);
+      color: #94a3b8;
+      pointer-events: none;
+      display: block;
+    }
+
+    /* أزرار الحذف ظاهرة دائماً على الموبايل ومخفية على الكمبيوتر حتى التمرير */
+    .action-btn {
+      opacity: 1;
+      transition: opacity 0.2s;
+    }
+    
+    @media (min-width: 768px) {
+      .action-btn {
+        opacity: 0;
+      }
+      .hover-trigger:hover .action-btn {
+        opacity: 1;
+      }
+    }
+
+    /* إعدادات الطباعة (A4 إجباري) */
+    @media print {
+      body {
+        background-color: white !important;
+      }
+      .a4-paper {
+        width: 100%;
+        max-width: none;
+        min-height: auto;
+        margin: 0;
+        padding: 0;
+        box-shadow: none;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .print-border {
+        border-color: #000 !important;
+      }
+      .overflow-x-auto {
+        overflow: visible !important;
+      }
+    }
+  </style>
+</head>
+<body class="flex flex-col min-h-screen text-slate-800">
+
+  <!-- الشريط العلوي المتجاوب -->
+  <header class="no-print sticky top-0 z-50 bg-brandNavy text-white shadow-lg">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 bg-brandTeal rounded flex items-center justify-center font-bold text-lg">ن</div>
+        <h1 class="font-bold text-base">منشئ الجداول</h1>
+      </div>
+      
+      <!-- أزرار التحكم - التفاف على الموبايل -->
+      <div class="flex flex-wrap justify-center gap-2 w-full sm:w-auto">
+        <button onclick="addTable()" class="flex-1 sm:flex-none px-3 py-2 bg-white/10 hover:bg-white/20 rounded text-xs font-semibold transition whitespace-nowrap">
+          <i class="fa-solid fa-plus mr-1"></i> جدول جديد
+        </button>
+        <button onclick="window.print()" class="flex-1 sm:flex-none px-3 py-2 bg-slate-600 hover:bg-slate-500 rounded text-xs font-semibold transition whitespace-nowrap">
+          <i class="fa-solid fa-print mr-1"></i> طباعة
+        </button>
+        <button onclick="downloadPDF()" id="pdfBtn" class="flex-1 sm:flex-none px-3 py-2 bg-brandTeal hover:bg-teal-400 rounded text-xs font-bold shadow transition whitespace-nowrap">
+          <i class="fa-solid fa-file-pdf mr-1"></i> PDF
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- مساحة العمل -->
+  <main class="flex-1 w-full pb-10">
+    <div id="document-container" class="a4-paper flex flex-col">
+      
+      <!-- الترويسة والشعار متجاوبة -->
+      <header class="text-center mb-6 relative mt-4">
+        <div class="inline-block border-2 border-brandTeal bg-slate-50 rounded-xl px-6 py-2 mb-4 w-full max-w-[250px] sm:max-w-xs">
+          <h1 class="text-3xl sm:text-4xl font-extrabold text-brandTeal tracking-wider">نَــحْــنُ</h1>
+          <p class="text-xs sm:text-sm font-bold text-brandNavy tracking-widest mt-1">NAHNO.ORG</p>
+          <p class="text-[9px] sm:text-[10px] text-slate-500 font-semibold mt-1">المنصة الوطنية لتطوع ومشاركة الشباب</p>
+        </div>
+
+        <div class="space-y-1">
+          <div contenteditable="true" data-placeholder="العنوان الأول" class="text-xl sm:text-2xl font-bold text-brandNavy inline-block min-w-[150px]">عنوان المستند</div>
+          <br>
+          <div contenteditable="true" data-placeholder="العنوان الثاني" class="text-lg sm:text-xl font-bold text-brandTeal inline-block min-w-[150px]">منصة نحن للتطوع</div>
+          <br>
+          <div contenteditable="true" data-placeholder="الجهة أو الجامعة" class="text-base sm:text-lg font-bold text-brandNavy inline-block min-w-[150px]">جامعة إربد الأهلية</div>
+        </div>
+      </header>
+
+      <!-- حاوية الجداول -->
+      <div id="tables-wrapper" class="flex-1 space-y-8">
+        <!-- الجداول ستُرسم هنا عبر الجافاسكربت -->
+      </div>
+
+      <!-- التذييل -->
+      <footer class="mt-8 pt-4 border-t border-slate-300 text-center">
+        <div contenteditable="true" data-placeholder="اكتب تذييل الصفحة هنا..." class="text-xs sm:text-sm text-slate-600 font-semibold inline-block min-w-[200px]">
+          أصدقاء سفراء منصة نحن - جامعة إربد الأهلية
+        </div>
+      </footer>
+
+    </div>
+  </main>
+
+  <script>
+    // بيانات التطبيق المبدئية (جدول واحد فارغ)
+    let appState = {
+      tables: [
+        {
+          id: 'table_' + Date.now(),
+          title: 'عنوان الجدول (انقر للتعديل)',
+          headers: ['#', 'الاسم', 'التخصص', 'السنة', 'الرقم الجامعي'],
+          rows: [
+            ['1', '', '', '', ''],
+            ['2', '', '', '', '']
+          ]
+        }
+      ]
+    };
+
+    window.onload = () => {
+      renderTables();
+    };
+
+    function renderTables() {
+      const wrapper = document.getElementById('tables-wrapper');
+      wrapper.innerHTML = '';
+
+      appState.tables.forEach((table, tableIndex) => {
+        const tableHTML = `
+          <div class="relative group" id="${table.id}">
+            
+            <div class="flex items-center justify-between mb-2">
+              <div contenteditable="true" onblur="updateTableTitle(${tableIndex}, this.innerText)" data-placeholder="عنوان الجدول" class="text-base sm:text-lg font-bold text-brandNavy px-1 min-w-[150px]">
+                ${table.title}
+              </div>
+              <button onclick="deleteTable(${tableIndex})" class="no-print action-btn text-red-500 hover:text-red-700 text-xs sm:text-sm font-bold bg-red-50 px-2 py-1 rounded">
+                <i class="fa-solid fa-trash"></i> حذف
+              </button>
+            </div>
+
+            <!-- تمرير أفقي للجدول على الموبايل -->
+            <div class="overflow-x-auto w-full pb-2 shadow-sm sm:shadow-none">
+              <table class="w-full border-collapse border-2 border-brandNavy text-center text-xs sm:text-sm print-border min-w-[500px] sm:min-w-full">
+                <thead>
+                  <tr class="bg-brandNavy text-white">
+                    ${table.headers.map((header, colIndex) => `
+                      <th class="border border-slate-300 p-0 relative hover-trigger">
+                        <div contenteditable="true" onblur="updateHeader(${tableIndex}, ${colIndex}, this.innerText)" data-placeholder="عنوان" class="p-2 sm:p-3 min-w-[60px] outline-none">
+                          ${header}
+                        </div>
+                        <button onclick="deleteColumn(${tableIndex}, ${colIndex})" class="no-print action-btn absolute top-0 -left-2 bg-red-500 text-white rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-[10px] sm:text-xs transform -translate-y-1/2 shadow-md z-10" title="حذف العمود">
+                          <i class="fa-solid fa-xmark"></i>
+                        </button>
+                      </th>
+                    `).join('')}
+                    <th class="no-print bg-slate-100 w-10 border border-slate-300 p-0 cursor-pointer hover:bg-slate-200 transition" onclick="addColumn(${tableIndex})" title="إضافة عمود">
+                      <i class="fa-solid fa-plus text-slate-500 text-base"></i>
+                    </th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  ${table.rows.map((row, rowIndex) => `
+                    <tr class="hover-trigger hover:bg-slate-50 transition border-b border-slate-300 print-border">
+                      ${row.map((cell, colIndex) => `
+                        <td class="border border-slate-300 p-0 relative">
+                          <div contenteditable="true" onblur="updateCell(${tableIndex}, ${rowIndex}, ${colIndex}, this.innerText)" class="p-2 sm:p-3 min-h-[40px] outline-none whitespace-pre-wrap">${cell}</div>
+                        </td>
+                      `).join('')}
+                      <td class="no-print border border-slate-300 w-10 text-center bg-slate-50">
+                        <button onclick="deleteRow(${tableIndex}, ${rowIndex})" class="action-btn text-red-400 hover:text-red-600 p-2">
+                          <i class="fa-solid fa-minus"></i>
+                        </button>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+
+            <button onclick="addRow(${tableIndex})" class="no-print mt-2 w-full py-2 sm:py-3 border-2 border-dashed border-slate-300 text-slate-500 hover:text-brandTeal hover:border-brandTeal hover:bg-teal-50 text-xs sm:text-sm font-bold rounded-lg transition">
+              <i class="fa-solid fa-plus"></i> إضافة صف
+            </button>
+
+          </div>
+        `;
+        wrapper.insertAdjacentHTML('beforeend', tableHTML);
+      });
+    }
+
+    function updateTableTitle(tIndex, val) { appState.tables[tIndex].title = val; }
+    function updateHeader(tIndex, cIndex, val) { appState.tables[tIndex].headers[cIndex] = val; }
+    function updateCell(tIndex, rIndex, cIndex, val) { appState.tables[tIndex].rows[rIndex][cIndex] = val; }
+
+    function addRow(tIndex) {
+      const table = appState.tables[tIndex];
+      const newRowNumber = (table.rows.length + 1).toString();
+      const newRow = table.headers.map((_, i) => i === 0 ? newRowNumber : '');
+      table.rows.push(newRow);
+      renderTables();
+    }
+
+    function deleteRow(tIndex, rIndex) {
+      const table = appState.tables[tIndex];
+      if (table.rows.length > 1) {
+        table.rows.splice(rIndex, 1);
+        table.rows.forEach((row, idx) => {
+          if (!isNaN(parseInt(row[0]))) row[0] = (idx + 1).toString();
+        });
+        renderTables();
+      } else {
+        alert('يجب ترك صف واحد على الأقل.');
+      }
+    }
+
+    function addColumn(tIndex) {
+      const table = appState.tables[tIndex];
+      table.headers.push('عنوان');
+      table.rows.forEach(row => row.push(''));
+      renderTables();
+    }
+
+    function deleteColumn(tIndex, cIndex) {
+      const table = appState.tables[tIndex];
+      if (table.headers.length > 1) {
+        table.headers.splice(cIndex, 1);
+        table.rows.forEach(row => row.splice(cIndex, 1));
+        renderTables();
+      } else {
+        alert('يجب ترك عمود واحد على الأقل.');
+      }
+    }
+
+    function addTable() {
+      appState.tables.push({
+        id: 'table_' + Date.now(),
+        title: 'جدول جديد',
+        headers: ['الرقم', 'البيان', 'ملاحظات'],
+        rows: [['1', '', ''], ['2', '', '']]
+      });
+      renderTables();
+    }
+
+    function deleteTable(tIndex) {
+      if(confirm('هل تريد حذف هذا الجدول بالكامل؟')) {
+        appState.tables.splice(tIndex, 1);
+        renderTables();
+      }
+    }
+
+    function downloadPDF() {
+      const element = document.getElementById('document-container');
+      const btn = document.getElementById('pdfBtn');
+      const originalText = btn.innerHTML;
+      
+      btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-1"></i> تحميل...`;
+      btn.disabled = true;
+
+      const noPrintElements = document.querySelectorAll('.no-print');
+      noPrintElements.forEach(el => el.style.display = 'none');
+
+      // عند استخراج PDF نزيل القيود عن التمرير لضمان طباعة الجدول كاملاً
+      const scrollableDivs = document.querySelectorAll('.overflow-x-auto');
+      scrollableDivs.forEach(div => {
+        div.classList.remove('overflow-x-auto');
+        div.style.overflow = 'visible';
+      });
+
+      const opt = {
+        margin:       0,
+        filename:     'كشف_نحن.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true, letterRendering: true, windowWidth: 1024 }, // فرض عرض أكبر للكانفاس لضمان عدم القص
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      html2pdf().set(opt).from(element).save().then(() => {
+        noPrintElements.forEach(el => el.style.display = '');
+        scrollableDivs.forEach(div => div.classList.add('overflow-x-auto'));
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+      }).catch(err => {
+        console.error(err);
+        noPrintElements.forEach(el => el.style.display = '');
+        scrollableDivs.forEach(div => div.classList.add('overflow-x-auto'));
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        alert('حدث خطأ. يرجى المحاولة من الكمبيوتر للحصول على أفضل جودة.');
+      });
+    }
+  </script>
+</body>
+</html>
